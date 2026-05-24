@@ -6,6 +6,7 @@ CC       = clang
 VERSION  = 20250622
 MAIN_NETWORK = berserk-9b84c340af7e.nn
 EVALFILE = $(MAIN_NETWORK)
+NETWORK_BASE = https://github.com/jhonnold/berserk-networks/releases/download/networks
 DEFS     = -DVERSION=\"$(VERSION)\" -DEVALFILE=\"$(EVALFILE)\" -DNDEBUG
 
 # Flags
@@ -110,9 +111,9 @@ download-network:
 		if test -f "$(EVALFILE)"; then \
 			echo "File already downloaded"; \
 		elif hash wget 2>/dev/null; then \
-			echo "Downloading $(EVALFILE) with wget"; wget -qO- https://berserk-networks.s3.amazonaws.com/$(EVALFILE) > $(EVALFILE); \
+			echo "Downloading $(EVALFILE) with wget"; wget -qO- $(NETWORK_BASE)/$(EVALFILE) > $(EVALFILE); \
 		elif hash curl 2>/dev/null; then \
-			echo "Downloading $(EVALFILE) with curl"; curl -skL https://berserk-networks.s3.amazonaws.com/$(EVALFILE) > $(EVALFILE); \
+			echo "Downloading $(EVALFILE) with curl"; curl -fskL $(NETWORK_BASE)/$(EVALFILE) > $(EVALFILE); \
 		fi; \
 		if test -f "$(EVALFILE)"; then \
 			if hash shasum 2>/dev/null; then \

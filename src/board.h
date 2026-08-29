@@ -22,6 +22,8 @@
 
 #define NO_PIECE 12
 
+#define START_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
 #define Piece(pc, c)   (((pc) << 1) + c)
 #define PieceType(pc)  ((pc) >> 1)
 #define PPieceBB(pc)   (board->pieces[pc])

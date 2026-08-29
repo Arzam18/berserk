@@ -19,6 +19,7 @@
 #include "attacks.h"
 #include "bench.h"
 #include "bits.h"
+#include "datagen.h"
 #include "eval.h"
 #include "nn/evaluate.h"
 #include "random.h"
@@ -50,6 +51,8 @@ int main(int argc, char** argv) {
       depth = Max(1, atoi(argv[2]));
 
     Bench(depth);
+  } else if (argc > 1 && !strncmp(argv[1], "genfens", 7)) {
+    Genfens(argv[1]);
   } else {
     UCILoop();
   }

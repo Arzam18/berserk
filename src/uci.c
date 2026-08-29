@@ -39,8 +39,6 @@
 #include "transposition.h"
 #include "util.h"
 
-#define START_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-
 int MOVE_OVERHEAD  = 50;
 int MULTI_PV       = 1;
 int PONDER_ENABLED = 0;

@@ -47,6 +47,9 @@ int PONDER_ENABLED = 0;
 int CHESS_960      = 0;
 int CONTEMPT       = 0;
 int SHOW_WDL       = 1;
+int MINIMAL        = 0;
+int NORMALIZE      = 1;
+int SOFT_NODES     = 0;
 
 SearchParams Limits;
 
@@ -157,9 +160,15 @@ void ParseGo(char* in, Board* board) {
     return;
   }
 
-  Limits.depth = depth;
-  Limits.mate  = mate;
-  Limits.nodes = nodes;
+  Limits.depth     = depth;
+  Limits.mate      = mate;
+  Limits.nodes     = nodes;
+  Limits.softNodes = 0;
+
+  if (Limits.nodes && SOFT_NODES) {
+    Limits.softNodes = Limits.nodes;
+    Limits.nodes     = Limits.softNodes * 100;
+  }
 
   if (Limits.nodes)
     Limits.hitrate = Min(1000, Max(1, Limits.nodes / 100));
@@ -263,6 +272,9 @@ void PrintUCIOptions() {
   printf("option name MoveOverhead type spin default 50 min 0 max 10000\n");
   printf("option name Contempt type spin default 0 min -100 max 100\n");
   printf("option name EvalFile type string default <empty>\n");
+  printf("option name Minimal type check default false\n");
+  printf("option name Normalize type check default true\n");
+  printf("option name SoftNodes type check default false\n");
   printf("uciok\n");
 }
 
@@ -434,6 +446,24 @@ void UCILoop() {
 
       if (success)
         printf("info string set EvalFile to value %s\n", path);
+    } else if (!strncmp(in, "setoption name Minimal value ", 29)) {
+      char opt[6];
+      sscanf(in, "%*s %*s %*s %*s %5s", opt);
+
+      MINIMAL = !strncmp(opt, "true", 4);
+      printf("info string set Minimal to value %s\n", MINIMAL ? "true" : "false");
+    } else if (!strncmp(in, "setoption name Normalize value ", 31)) {
+      char opt[6];
+      sscanf(in, "%*s %*s %*s %*s %5s", opt);
+
+      NORMALIZE = !strncmp(opt, "true", 4);
+      printf("info string set Normalize to value %s\n", NORMALIZE ? "true" : "false");
+    } else if (!strncmp(in, "setoption name SoftNodes value ", 31)) {
+      char opt[6];
+      sscanf(in, "%*s %*s %*s %*s %5s", opt);
+
+      SOFT_NODES = !strncmp(opt, "true", 4);
+      printf("info string set SoftNodes to value %s\n", SOFT_NODES ? "true" : "false");
     } else
       printf("Unknown command: %s \n", in);
   }

@@ -61,7 +61,7 @@ void InitPruningAndReductionTables() {
     LMP[1][depth] = 1.7721 + 0.9801 * depth * depth;
 
     STATIC_PRUNE[0][depth] = -13.7791 * depth * depth; // quiet move cutoff
-    STATIC_PRUNE[1][depth] = -108.3466 * depth;         // capture cutoff
+    STATIC_PRUNE[1][depth] = -108.3466 * depth;        // capture cutoff
   }
 }
 
@@ -173,9 +173,10 @@ void MainSearch() {
       bestThread = curr, bestScore = currScore, bestVoteScore = currVoteScore;
   }
 
-  if (bestThread != mainThread) {
-    PrintUCI(bestThread, -CHECKMATE, CHECKMATE, board);
+  if (bestThread != mainThread || MINIMAL)
+    PrintUCI(bestThread, bestThread->completedDepth, -CHECKMATE, CHECKMATE, board);
 
+  if (bestThread != mainThread) {
     // / If a new thread is best, make it the main thread
     mainThread->idx                  = bestThread->idx;
     Threads.threads[mainThread->idx] = mainThread;
@@ -213,7 +214,8 @@ void Search(ThreadData* thread) {
   Board* board   = &thread->board;
   int mainThread = !thread->idx;
 
-  thread->depth = 0;
+  thread->depth          = 0;
+  thread->completedDepth = 0;
   ResetAccumulator(board->accumulators, board, WHITE);
   ResetAccumulator(board->accumulators, board, BLACK);
   SetContempt(thread->contempt, board->stm);
@@ -275,9 +277,9 @@ void Search(ThreadData* thread) {
 
         SortRootMoves(thread, thread->multiPV);
 
-        if (mainThread && (score <= alpha || score >= beta) && Limits.multiPV == 1 &&
+        if (mainThread && !MINIMAL && (score <= alpha || score >= beta) && Limits.multiPV == 1 &&
             GetTimeMS() - Limits.start >= 2500)
-          PrintUCI(thread, alpha, beta, board);
+          PrintUCI(thread, thread->depth, alpha, beta, board);
 
         if (score <= alpha) {
           // adjust beta downward when failing low
@@ -305,12 +307,14 @@ void Search(ThreadData* thread) {
       SortRootMoves(thread, 0);
 
       // Print if final multipv or time elapsed
-      if (mainThread && (thread->multiPV + 1 == Limits.multiPV || GetTimeMS() - Limits.start >= 2500))
-        PrintUCI(thread, -CHECKMATE, CHECKMATE, board);
+      if (mainThread && !MINIMAL && (thread->multiPV + 1 == Limits.multiPV || GetTimeMS() - Limits.start >= 2500))
+        PrintUCI(thread, thread->depth, -CHECKMATE, CHECKMATE, board);
     }
 
     if (LoadRlx(Threads.stop))
       break;
+
+    thread->completedDepth = thread->depth;
 
     if (!mainThread)
       continue;
@@ -320,6 +324,9 @@ void Search(ThreadData* thread) {
 
     // Found mate?
     if (Limits.mate && CHECKMATE - abs(bestScore) <= 2 * abs(Limits.mate))
+      break;
+
+    if (Limits.softNodes && NodesSearched() >= Limits.softNodes)
       break;
 
     // Time Management stuff
@@ -634,7 +641,7 @@ int Negamax(int alpha, int beta, int depth, int cutnode, ThreadData* thread, PV*
     int history         = GetHistory(ss, thread, move);
 
     int R = LMR[Min(depth, 63)][Min(legalMoves, 63)];
-    R -= 8 * history / 65536;                         // adjust reduction based on historical score
+    R -= 8 * history / 65536;                    // adjust reduction based on historical score
     R += (IsCap(hashMove) || IsPromo(hashMove)); // increase reduction if hash move is noisy
 
     if (bestScore > -TB_WIN_BOUND) {
@@ -1012,8 +1019,7 @@ int Quiesce(int alpha, int beta, int depth, ThreadData* thread, SearchStack* ss)
   return bestScore;
 }
 
-void PrintUCI(ThreadData* thread, int alpha, int beta, Board* board) {
-  int depth       = thread->depth;
+void PrintUCI(ThreadData* thread, int depth, int alpha, int beta, Board* board) {
   uint64_t nodes  = NodesSearched();
   uint64_t tbhits = TBHits();
   uint64_t time   = Max(1, GetTimeMS() - Limits.start);
@@ -1025,14 +1031,15 @@ void PrintUCI(ThreadData* thread, int alpha, int beta, Board* board) {
     if (depth == 1 && i > 0 && !updated)
       break;
 
-    int realDepth = updated ? depth : Max(1, depth - 1);
+    int realDepth = Max(1, updated ? depth : depth - 1);
     int bounded   = updated ? Max(alpha, Min(beta, thread->rootMoves[i].score)) : thread->rootMoves[i].previousScore;
-    int printable = bounded > MATE_BOUND           ? (CHECKMATE - bounded + 1) / 2 :
-                    bounded < -MATE_BOUND          ? -(CHECKMATE + bounded) / 2 :
-                    abs(bounded) > TB_WIN_BOUND ? bounded : // don't normalize our fake tb scores or real tb scores
-                                                     Normalize(bounded); // convert to 50% WR at 100cp
-    char* type  = abs(bounded) > MATE_BOUND ? "mate" : "cp";
-    char* bound = " ";
+    int printable = bounded > MATE_BOUND  ? (CHECKMATE - bounded + 1) / 2 :
+                    bounded < -MATE_BOUND ? -(CHECKMATE + bounded) / 2 :
+                    !NORMALIZE || abs(bounded) > TB_WIN_BOUND ? // don't normalize our fake tb scores or real tb scores
+                      bounded :
+                      Normalize(bounded); // convert to 50% WR at 100cp
+    char* type    = abs(bounded) > MATE_BOUND ? "mate" : "cp";
+    char* bound   = " ";
     if (updated)
       bound = bounded >= beta ? " lowerbound " : bounded <= alpha ? " upperbound " : " ";
 

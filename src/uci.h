@@ -22,6 +22,8 @@
 extern int SHOW_WDL;
 extern int CHESS_960;
 extern int CONTEMPT;
+extern int MINIMAL;
+extern int NORMALIZE;
 extern SearchParams Limits;
 
 // Normalization of a score to 50% WR at 100cp

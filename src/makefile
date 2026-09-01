@@ -1,9 +1,9 @@
 # General
 EXE      = berserk
-SRC      = attacks.c bench.c berserk.c bits.c board.c eval.c history.c move.c movegen.c movepick.c perft.c random.c \
+SRC      = attacks.c bench.c berserk.c bits.c board.c datagen.c eval.c history.c move.c movegen.c movepick.c perft.c random.c \
 		   search.c see.c tb.c thread.c transposition.c uci.c util.c zobrist.c nn/accumulator.c nn/evaluate.c pyrrhic/tbprobe.c
 CC       = clang
-VERSION  = 20260524
+VERSION  = 20260829b
 MAIN_NETWORK = berserk-9b84c340af7e.nn
 EVALFILE = $(MAIN_NETWORK)
 NETWORK_BASE = https://github.com/jhonnold/berserk-networks/releases/download/networks
@@ -57,19 +57,6 @@ else ifeq ($(findstring avx2, $(ARCH)), avx2)
 	CFLAGS = $(FLAGS) $(MAVX2)
 else ifeq ($(findstring avx512, $(ARCH)), avx512)
 	CFLAGS = $(FLAGS) $(MAVX512)
-endif
-
-ifeq ($(ARCH), native)
-	PROPS = $(shell echo | $(CC) -march=native -E -dM -)
-	ifneq ($(findstring __BMI2__, $(PROPS)),)
-		ifeq ($(findstring __znver1, $(PROPS)),)
-			ifeq ($(findstring __znver2, $(PROPS)),)
-				CFLAGS += -DUSE_PEXT
-			endif
-		endif
-	endif
-else ifeq ($(findstring -pext, $(ARCH)), -pext)
-	CFLAGS += -DUSE_PEXT -mbmi2
 endif
 
 openbench: download-network

@@ -36,7 +36,7 @@ void Search(ThreadData* thread);
 int Negamax(int alpha, int beta, int depth, int cutnode, ThreadData* thread, PV* pv, SearchStack* ss);
 int Quiesce(int alpha, int beta, int depth, ThreadData* thread, SearchStack* ss);
 
-void PrintUCI(ThreadData* thread, int alpha, int beta, Board* board);
+void PrintUCI(ThreadData* thread, int depth, int alpha, int beta, Board* board);
 void PrintPV(PV* pv, Board* board);
 
 void SortRootMoves(ThreadData* thread, int offset);

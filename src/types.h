@@ -20,7 +20,6 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <pthread.h>
-#include <setjmp.h>
 #include <stdatomic.h>
 
 #define MAX_SEARCH_PLY 201 // effective max depth 250
@@ -105,7 +104,7 @@ typedef struct {
 
   uint64_t piecesCounts; // "material key" - pieces left on the board
 
-  int squares[64];         // piece per square
+  uint8_t squares[64];     // piece per square
   BitBoard occupancies[3]; // 0 - white pieces, 1 - black pieces, 2 - both
   BitBoard pieces[12];     // individual piece data
 
@@ -146,6 +145,7 @@ typedef struct {
   int max;
 
   uint64_t nodes;
+  uint64_t softNodes;
   int hitrate;
 
   int timeset;
@@ -180,7 +180,7 @@ enum {
 typedef struct ThreadData ThreadData;
 
 struct ThreadData {
-  int idx, multiPV, depth, seldepth;
+  int idx, multiPV, depth, completedDepth, seldepth;
   atomic_uint_fast64_t nodes, tbhits;
 
   int nmpMinPly, npmColor;
@@ -207,7 +207,6 @@ struct ThreadData {
   pthread_t nativeThread;
   pthread_mutex_t mutex;
   pthread_cond_t sleep;
-  jmp_buf exit;
 };
 
 typedef struct {

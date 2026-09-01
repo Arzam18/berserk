@@ -14,32 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef UCI_H
-#define UCI_H
+#ifndef DATAGEN_H
+#define DATAGEN_H
 
-#include "types.h"
-
-extern int SHOW_WDL;
-extern int CHESS_960;
-extern int CONTEMPT;
-extern int MINIMAL;
-extern int NORMALIZE;
-extern SearchParams Limits;
-
-// Normalization of a score to 50% WR at 100cp
-#define Normalize(s) ((s) / 1.58)
-
-int WRModel(Score s, int ply);
-
-void RootMoves(SimpleMoveList* moves, Board* board);
-
-void ParseGo(char* in, Board* board);
-void ParsePosition(char* in, Board* board);
-void PrintUCIOptions();
-
-int ReadLine(char* in);
-void UCILoop();
-
-int GetOptionIntValue(char* in);
+// OpenBench builds a DATAGEN opening book by running the engine as
+//   ./berserk "genfens N seed S book <None|Books/x.epd> <extra>" "quit"
+// and reading back lines prefixed with "info string genfens ".
+void Genfens(char* args);
 
 #endif

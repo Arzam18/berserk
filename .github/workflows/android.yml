@@ -1,0 +1,116 @@
+
+name: Build Berserk for Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Android NDK r26d
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
+          unzip -q android-ndk-r26d-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26d" >> "$GITHUB_ENV"
+
+      - name: Build Android ARM64 NEON
+        run: |
+          set -euo pipefail
+          cd src
+
+          # Read upstream settings and remove CR/LF characters.
+          NETWORK=$(sed -n 's/^MAIN_NETWORK[[:space:]]*=[[:space:]]*//p' makefile | head -n1 | tr -d '\r\n')
+          VERSION=$(sed -n 's/^VERSION[[:space:]]*=[[:space:]]*//p' makefile | head -n1 | tr -d '\r\n')
+
+          if [ -z "$NETWORK" ] || [ -z "$VERSION" ]; then
+            echo "::error::Could not detect upstream network or version"
+            exit 1
+          fi
+
+          echo "Version: [$VERSION]"
+          echo "Network: [$NETWORK]"
+
+          CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang"
+
+          CFLAGS="-std=gnu11 -Wall -Wextra -Wshadow -g -O3 -flto -DVERSION=\\\"${VERSION}\\\" -DEVALFILE=\\\"${NETWORK}\\\" -DNDEBUG --target=aarch64-linux-android28 -march=armv8-a+simd"
+
+          # Ensure the network name matches upstream.
+          make ARCH=armv8 build \
+            CC="$CC" \
+            EVALFILE="$NETWORK" \
+            CFLAGS="$CFLAGS"
+
+          mv berserk "berserk-${VERSION}-android-arm64-neon"
+
+      - name: Build Android ARM64 DotProd
+        run: |
+          set -euo pipefail
+          cd src
+
+          NETWORK=$(sed -n 's/^MAIN_NETWORK[[:space:]]*=[[:space:]]*//p' makefile | head -n1 | tr -d '\r\n')
+          VERSION=$(sed -n 's/^VERSION[[:space:]]*=[[:space:]]*//p' makefile | head -n1 | tr -d '\r\n')
+
+          CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang"
+
+          make clean
+
+          CFLAGS="-std=gnu11 -Wall -Wextra -Wshadow -g -O3 -flto -DVERSION=\\\"${VERSION}\\\" -DEVALFILE=\\\"${NETWORK}\\\" -DNDEBUG --target=aarch64-linux-android28 -march=armv8.2-a+dotprod+simd"
+
+          make ARCH=armv8 build \
+            CC="$CC" \
+            EVALFILE="$NETWORK" \
+            CFLAGS="$CFLAGS"
+
+          mv berserk "berserk-${VERSION}-android-arm64-dotprod"
+
+      - name: Verify Android binaries
+        run: |
+          set -euo pipefail
+          cd src
+
+          VERSION=$(sed -n 's/^VERSION[[:space:]]*=[[:space:]]*//p' makefile | head -n1 | tr -d '\r\n')
+
+          for BINARY in \
+            "berserk-${VERSION}-android-arm64-neon" \
+            "berserk-${VERSION}-android-arm64-dotprod"
+          do
+            echo "Checking $BINARY"
+            file "$BINARY"
+            readelf -h "$BINARY" | grep -E 'Class:|Machine:'
+            test -s "$BINARY"
+          done
+
+      - name: Upload Android binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: Berserk-Android-ARM64
+          path: |
+            src/berserk-*-android-arm64-neon
+            src/berserk-*-android-arm64-dotprod
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create prerelease
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-build-${{ github.run_number }}
+          name: Berserk Android ARM64
+          prerelease: true
+          files: |
+            src/berserk-*-android-arm64-neon
+            src/berserk-*-android-arm64-dotprod
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
